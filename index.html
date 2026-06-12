@@ -27,7 +27,7 @@
             padding: 15px; background-color: rgba(255, 255, 255, 0.08);
             border-radius: 8px; border-left: 5px solid #e74c3c; word-break: break-all;
         }
-        .loading { display: none; font-size: 1.1rem; color: #bbb; margin-top: 15px; }
+        .loading { display: none; font-size: 1.1rem; color: #bbb; margin-top: 15px; line-height: 1.5; }
     </style>
 </head>
 <body>
@@ -35,7 +35,7 @@
     <div id="main-container">
         <img src="https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=500" id="draw-btn" alt="素還真">
         <div class="instruction">請點選圖片抽選自己的角色</div>
-        <div id="loading-txt" class="loading">正在傳送命運資料至雲端...</div>
+        <div id="loading-txt" class="loading">正在確認天機與可用角色...</div>
     </div>
 
     <div id="result-container">
@@ -48,7 +48,6 @@
         // 【重要】請將下方引號內替換為您在步驟一產生的 GAS Web App 網址
         const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwx7T9hXHwhAPIVZUmElTSH0xgBUZuVgBS6ipfzm-E83aFwYv9-cGN4ThaWcrb_tUL34w/exec";
 
-        // 霹靂布袋戲 30位名單庫陣列範例（您可以自由調整圖片URL或擴充至滿30位）
         const piliCharacters = [
             { name: "素還真", img: "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=500", quote: "半神半聖亦半仙，全儒全道是全賢；腦中真書藏萬卷，掌握文武半邊天。" },
             { name: "一頁書", img: "https://images.unsplash.com/photo-1536924940846-227afb31e2a5?q=80&w=500", quote: "世事如棋，乾坤莫測，笑盡英雄啊！" },
@@ -58,44 +57,62 @@
             { name: "疏樓龍宿", img: "https://images.unsplash.com/photo-1541701494587-cb58502866ab?q=80&w=500", quote: "華陽初上鴻門紅，疏樓更迭，龍麟不減風采；紫金簫，白玉琴，宮燈夜明曇華正盛，共飲逍遙一世悠然。" },
             { name: "劍子仙跡", img: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=500", quote: "何須劍道爭鋒？千人指，萬人封；可問鼎天下，唯獨仙跡劍子。" },
             { name: "佛劍分說", img: "https://images.unsplash.com/photo-1500622944204-b135684e99fd?q=80&w=500", quote: "殺生為護生，斬業非斬人！" }
-            // 點擊後會由代碼隨機抽取，您可在這裡依相同格式補滿至 30 位
+            // 您可在這裡依相同格式補滿至 30 位
         ];
 
         document.getElementById('draw-btn').addEventListener('click', function() {
-            // 避免使用者連續重複點擊
             document.getElementById('draw-btn').style.pointerEvents = 'none';
-            document.getElementById('loading-txt').style.display = 'block';
+            const loadingTxt = document.getElementById('loading-txt');
+            loadingTxt.style.display = 'block';
+            loadingTxt.innerText = "正在向雲端確認可用角色...";
 
-            // 1. 隨機隨選一位角色
-            const randomIndex = Math.floor(Math.random() * piliCharacters.length);
-            const selectedChar = piliCharacters[randomIndex];
-
-            // 2. 組合最終指定的台詞後綴
-            const finalQuote = selectedChar.quote + " + 關於真實自己的自我介紹。";
-
-            // 3. 連線傳送到雲端 Google 試算表
-            const uploadUrl = `${GAS_WEB_APP_URL}?action=insert&name=${encodeURIComponent(selectedChar.name)}&quote=${encodeURIComponent(finalQuote)}`;
-
-            fetch(uploadUrl)
+            // 步驟一：先從雲端抓取「已經被抽走」的名單
+            fetch(`${GAS_WEB_APP_URL}?action=read`)
             .then(response => response.json())
-            .then(result => {
-                if(result.status === "success") {
-                    // 4. 成功寫入雲端後，切換為手機結果頁面
-                    document.getElementById('main-container').style.display = 'none';
-                    document.getElementById('result-container').style.display = 'block';
-                    
-                    document.getElementById('result-name').innerText = `【您的角色：${selectedChar.name}】`;
-                    document.getElementById('result-img').src = selectedChar.img;
-                    document.getElementById('result-quote').innerText = finalQuote;
-                } else {
-                    alert("抽獎失敗，請重新整理頁面再試一次。");
+            .then(drawnData => {
+                
+                // 整理出已被抽走的角色名稱陣列
+                const drawnNames = drawnData.map(item => item.name);
+
+                // 步驟二：過濾出「還沒有被抽走」的角色
+                const availableCharacters = piliCharacters.filter(char => !drawnNames.includes(char.name));
+
+                // 檢查是否還有剩餘角色
+                if (availableCharacters.length === 0) {
+                    alert("所有的角色都已經被抽完囉！");
+                    loadingTxt.innerText = "角色已全數抽完";
+                    return; // 終止程式，不再進行抽取
                 }
+
+                // 步驟三：從剩餘角色中隨機抽選一位
+                const randomIndex = Math.floor(Math.random() * availableCharacters.length);
+                const selectedChar = availableCharacters[randomIndex];
+                const finalQuote = selectedChar.quote + " + 關於真實自己的自我介紹。";
+
+                loadingTxt.innerText = "正在傳送命運資料至雲端...";
+
+                // 步驟四：將抽中的結果寫入雲端
+                const uploadUrl = `${GAS_WEB_APP_URL}?action=insert&name=${encodeURIComponent(selectedChar.name)}&quote=${encodeURIComponent(finalQuote)}`;
+                
+                return fetch(uploadUrl).then(res => res.json()).then(result => {
+                    if(result.status === "success") {
+                        // 寫入成功後，切換結果畫面
+                        document.getElementById('main-container').style.display = 'none';
+                        document.getElementById('result-container').style.display = 'block';
+                        
+                        document.getElementById('result-name').innerText = `【您的角色：${selectedChar.name}】`;
+                        document.getElementById('result-img').src = selectedChar.img;
+                        document.getElementById('result-quote').innerText = finalQuote;
+                    } else {
+                        throw new Error("雲端寫入失敗");
+                    }
+                });
             })
             .catch(error => {
                 console.error("Error:", error);
                 alert("網路連線異常，請確認是否已正確設定 GAS 網址。");
                 document.getElementById('draw-btn').style.pointerEvents = 'auto';
-                document.getElementById('loading-txt').style.display = 'none';
+                loadingTxt.style.display = 'none';
             });
         });
     </script>
