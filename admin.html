@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>大會抽獎管理後台系統</title>
+    <style>
+        body { font-family: "Microsoft JhengHei", sans-serif; background-color: #1e272e; color: white; padding: 30px; margin: 0; }
+        h1 { text-align: center; color: #ffd32a; font-size: 2.5rem; letter-spacing: 3px; margin-bottom: 30px; }
+        .dashboard { display: flex; gap: 30px; justify-content: center; max-width: 1400px; margin: 0 auto; }
+        .pool-list { background-color: #2f3640; padding: 25px; border-radius: 12px; width: 35%; height: 65vh; display: flex; flex-direction: column; }
+        .pool-container { flex-grow: 1; overflow-y: auto; margin: 15px 0; background: #212529; padding: 10px; border-radius: 8px; }
+        .lottery-area { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 60%; background-color: #3d3d3d; border-radius: 12px; padding: 30px; box-shadow: inset 0 0 20px rgba(0,0,0,0.5); }
+        button { padding: 15px 40px; font-size: 1.5rem; font-weight: bold; cursor: pointer; color: white; border: none; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: background 0.2s; }
+        .btn-draw { background-color: #ff3f34; }
+        .btn-draw:hover { background-color: #e53935; }
+        .btn-clear { background-color: #718093; font-size: 1rem; padding: 8px 15px; }
+        .btn-clear:hover { background-color: #636e72; }
+        .winner-display { margin-top: 40px; padding: 30px; background: #1e272e; border: 3px dashed #ffd32a; border-radius: 10px; width: 80%; text-align: center; min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .winner-title { color: #ffd32a; font-size: 2.2rem; margin: 0 0 15px 0; font-weight: bold; }
+        .winner-quote { font-size: 1.25rem; line-height: 1.8; color: #f5f6fa; text-align: left; background: rgba(0,0,0,0.4); padding: 15px; border-radius: 6px; width: 90%; }
+        ul { list-style: none; padding: 0; margin: 0; }
+        li { padding: 10px; border-bottom: 1px solid #485460; font-size: 1rem; color: #dcdde1; }
+        li:last-child { border-bottom: none; }
+        .highlight-num { color: #ffd32a; font-weight: bold; font-size: 1.3rem; }
+    </style>
+</head>
+<body>
+
+    <h1>霹靂英雄大會 現場抽獎管理系統</h1>
+    
+    <div class="dashboard">
+        <div class="pool-list">
+            <h2 style="margin:0; font-size:1.4rem;">雲端同步抽獎池 (<span id="count" class="highlight-num">0</span> 人)</h2>
+            <div class="pool-container">
+                <ul id="pool-ul">
+                    <li>正在從 Google 試算表載入名單...</li>
+                </ul>
+            </div>
+            <button class="btn-clear" onclick="clearPool()">清空雲端資料庫</button>
+        </div>
+
+        <div class="lottery-area">
+            <button class="btn-draw" onclick="drawWinner()">從名單中 抽出大獎</button>
+            <div class="winner-display" id="winner-box">
+                <div style="font-size: 1.5rem; color: #aaa;">準備就緒，等待按下抽獎按鈕...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 【重要】請將下方引號內替換為您在步驟一產生的 GAS Web App 網址
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwx7T9hXHwhAPIVZUmElTSH0xgBUZuVgBS6ipfzm-E83aFwYv9-cGN4ThaWcrb_tUL34w/exec";
+        
+        let currentPool = [];
+
+        // 每 2 秒 (2000毫秒) 自動跟雲端試算表同步一次最新資料
+        setInterval(updatePoolFromCloud, 2000);
+        updatePoolFromCloud(); // 初始載入
+
+        function updatePoolFromCloud() {
+            fetch(`${GAS_WEB_APP_URL}?action=read`)
+            .then(res => res.json())
+            .then(data => {
+                currentPool = data;
+                document.getElementById('count').innerText = data.length;
+                
+                const ul = document.getElementById('pool-ul');
+                ul.innerHTML = '';
+                
+                if(data.length === 0) {
+                    ul.innerHTML = '<li style="color:#aaa; text-align:center;">目前無人填寫，等待手機端加入...</li>';
+                    return;
+                }
+                
+                // 倒序排列，最新加入的人呈現在最上面
+                for(let i = data.length - 1; i >= 0; i--) {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span style="color:#00d2d3;">●</span> <b>${data[i].name}</b> - <span style="font-size:0.85rem; color:#9c88ff;">${data[i].timestamp.split(' ')[1] || ''}</span>`;
+                    ul.appendChild(li);
+                }
+            })
+            .catch(err => console.error("同步失敗:", err));
+        }
+
+        // 執行現場抽獎
+        function drawWinner() {
+            if (currentPool.length === 0) {
+                alert("抽獎池內空空如也！請先讓現場觀眾用手機進行抽取。");
+                return;
+            }
+
+            const winnerBox = document.getElementById('winner-box');
+            winnerBox.innerHTML = '<div style="font-size: 2rem; color: #ffd32a; animation: blink 0.2s infinite;">天機運轉中...</div>';
+
+            // 模擬跑馬燈 1 秒鐘的視覺效果後開獎
+            setTimeout(() => {
+                const winnerIndex = Math.floor(Math.random() * currentPool.length);
+                const winner = currentPool[winnerIndex];
+                
+                winnerBox.innerHTML = `
+                    <div class="winner-title">恭喜抽出：${winner.name}</div>
+                    <div class="winner-quote"><b>出場台詞：</b><br>${winner.quote}</div>
+                    <div style="font-size:0.9rem; color:#a4b0be; margin-top:15px;">(登記時間: ${winner.timestamp})</div>
+                `;
+            }, 1000);
+        }
+
+        // 清空試算表
+        function clearPool() {
+            if(confirm("警告：這將會永久刪除 Google 試算表內『所有已登記』的抽獎名單！確定要清空嗎？")) {
+                document.getElementById('pool-ul').innerHTML = '<li>正在執行雲端清空...</li>';
+                fetch(`${GAS_WEB_APP_URL}?action=clear`)
+                .then(res => res.json())
+                .then(result => {
+                    if(result.status === "cleared") {
+                        alert("雲端資料庫已成功清空！");
+                        updatePoolFromCloud();
+                        document.getElementById('winner-box').innerHTML = '<div style="font-size: 1.5rem; color: #aaa;">準備就緒，等待按下抽獎按鈕...</div>';
+                    }
+                });
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>霹靂布袋戲角色抽選</title>
+    <style>
+        body {
+            margin: 0; padding: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; background-color: #121212; color: #ffffff;
+            font-family: "Microsoft JhengHei", sans-serif; text-align: center;
+        }
+        #main-container, #result-container { width: 90%; max-width: 400px; padding: 20px; box-sizing: border-box; }
+        #result-container { display: none; }
+        img {
+            width: 100%; max-width: 280px; height: 380px; object-fit: cover;
+            border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.6);
+            cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
+            border: 2px solid #333;
+        }
+        img:active { transform: scale(0.96); box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
+        .instruction { margin-top: 25px; font-size: 1.25rem; letter-spacing: 2px; color: #f1c40f; font-weight: bold; }
+        .char-title { font-size: 1.5rem; margin: 15px 0 10px 0; color: #e74c3c; font-weight: bold; }
+        .quote {
+            margin-top: 15px; font-size: 1.05rem; line-height: 1.7; text-align: left;
+            padding: 15px; background-color: rgba(255, 255, 255, 0.08);
+            border-radius: 8px; border-left: 5px solid #e74c3c; word-break: break-all;
+        }
+        .loading { display: none; font-size: 1.1rem; color: #bbb; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+    <div id="main-container">
+        <img src="https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=500" id="draw-btn" alt="素還真">
+        <div class="instruction">請點選圖片抽選自己的角色</div>
+        <div id="loading-txt" class="loading">正在傳送命運資料至雲端...</div>
+    </div>
+
+    <div id="result-container">
+        <div class="char-title" id="result-name"></div>
+        <img src="" id="result-img" alt="您的角色">
+        <div class="quote" id="result-quote"></div>
+    </div>
+
+    <script>
+        // 【重要】請將下方引號內替換為您在步驟一產生的 GAS Web App 網址
+        const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwx7T9hXHwhAPIVZUmElTSH0xgBUZuVgBS6ipfzm-E83aFwYv9-cGN4ThaWcrb_tUL34w/exec";
+
+        // 霹靂布袋戲 30位名單庫陣列範例（您可以自由調整圖片URL或擴充至滿30位）
+        const piliCharacters = [
+            { name: "素還真", img: "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=500", quote: "半神半聖亦半仙，全儒全道是全賢；腦中真書藏萬卷，掌握文武半邊天。" },
+            { name: "一頁書", img: "https://images.unsplash.com/photo-1536924940846-227afb31e2a5?q=80&w=500", quote: "世事如棋，乾坤莫測，笑盡英雄啊！" },
+            { name: "葉小釵", img: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=500", quote: "征衣紅塵化雲煙，江湖落拓不知年；劍痴刀狂世紛雲，今將衣缽卸雙肩。" },
+            { name: "亂世狂刀", img: "https://images.unsplash.com/photo-1534447677768-be436bb09401?q=80&w=500", quote: "一簫一劍平生意，負盡狂名十五年。" },
+            { name: "劍君十二恨", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=500", quote: "一恨才人無行，二恨紅顏薄命，三恨江浪不息...十二恨天下無敵。" },
+            { name: "疏樓龍宿", img: "https://images.unsplash.com/photo-1541701494587-cb58502866ab?q=80&w=500", quote: "華陽初上鴻門紅，疏樓更迭，龍麟不減風采；紫金簫，白玉琴，宮燈夜明曇華正盛，共飲逍遙一世悠然。" },
+            { name: "劍子仙跡", img: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=500", quote: "何須劍道爭鋒？千人指，萬人封；可問鼎天下，唯獨仙跡劍子。" },
+            { name: "佛劍分說", img: "https://images.unsplash.com/photo-1500622944204-b135684e99fd?q=80&w=500", quote: "殺生為護生，斬業非斬人！" }
+            // 點擊後會由代碼隨機抽取，您可在這裡依相同格式補滿至 30 位
+        ];
+
+        document.getElementById('draw-btn').addEventListener('click', function() {
+            // 避免使用者連續重複點擊
+            document.getElementById('draw-btn').style.pointerEvents = 'none';
+            document.getElementById('loading-txt').style.display = 'block';
+
+            // 1. 隨機隨選一位角色
+            const randomIndex = Math.floor(Math.random() * piliCharacters.length);
+            const selectedChar = piliCharacters[randomIndex];
+
+            // 2. 組合最終指定的台詞後綴
+            const finalQuote = selectedChar.quote + " + 關於真實自己的自我介紹。";
+
+            // 3. 連線傳送到雲端 Google 試算表
+            const uploadUrl = `${GAS_WEB_APP_URL}?action=insert&name=${encodeURIComponent(selectedChar.name)}&quote=${encodeURIComponent(finalQuote)}`;
+
+            fetch(uploadUrl)
+            .then(response => response.json())
+            .then(result => {
+                if(result.status === "success") {
+                    // 4. 成功寫入雲端後，切換為手機結果頁面
+                    document.getElementById('main-container').style.display = 'none';
+                    document.getElementById('result-container').style.display = 'block';
+                    
+                    document.getElementById('result-name').innerText = `【您的角色：${selectedChar.name}】`;
+                    document.getElementById('result-img').src = selectedChar.img;
+                    document.getElementById('result-quote').innerText = finalQuote;
+                } else {
+                    alert("抽獎失敗，請重新整理頁面再試一次。");
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("網路連線異常，請確認是否已正確設定 GAS 網址。");
+                document.getElementById('draw-btn').style.pointerEvents = 'auto';
+                document.getElementById('loading-txt').style.display = 'none';
+            });
+        });
+    </script>
+</body>
+</html>
