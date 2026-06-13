@@ -2,32 +2,87 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>霹靂布袋戲角色抽選</title>
     <style>
         body {
             margin: 0; padding: 0;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            min-height: 100vh; background-color: #121212; color: #ffffff;
-            font-family: "Microsoft JhengHei", sans-serif; text-align: center;
+            background-color: #121212; color: #ffffff;
+            font-family: "Microsoft JhengHei", sans-serif;
+            overflow: hidden; /* 防止整個網頁滑動，保持完美對切 */
         }
-        #main-container, #result-container { width: 90%; max-width: 400px; padding: 20px; box-sizing: border-box; }
-        #result-container { display: none; }
-        img {
+        
+        /* 初始首頁設計保持不變，居中顯示 */
+        #main-container {
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            height: 100vh; padding: 20px; box-sizing: border-box; text-align: center;
+        }
+        #main-container img {
             width: 100%; max-width: 280px; height: 380px; object-fit: cover;
             border-radius: 12px; box-shadow: 0 8px 16px rgba(0,0,0,0.6);
             cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
             border: 2px solid #333;
         }
-        img:active { transform: scale(0.96); box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
-        .instruction { margin-top: 25px; font-size: 1.25rem; letter-spacing: 2px; color: #f1c40f; font-weight: bold; }
-        .char-title { font-size: 1.5rem; margin: 15px 0 10px 0; color: #e74c3c; font-weight: bold; }
-        .quote {
-            margin-top: 15px; font-size: 1.05rem; line-height: 1.7; text-align: left;
-            padding: 15px; background-color: rgba(255, 255, 255, 0.08);
-            border-radius: 8px; border-left: 5px solid #e74c3c; word-break: break-all;
-        }
+        #main-container img:active { transform: scale(0.96); box-shadow: 0 4px 8px rgba(0,0,0,0.4); }
+        .instruction { margin-top: 4vh; font-size: 1.25rem; letter-spacing: 2px; color: #f1c40f; font-weight: bold; }
         .loading { display: none; font-size: 1.1rem; color: #bbb; margin-top: 15px; line-height: 1.5; }
+
+        /* --- 全新的結果頁面設計 (50/50 比例) --- */
+        #result-container {
+            display: none; /* 初始隱藏，抽獎後會由 JS 改為 flex */
+            flex-direction: column;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        /* 上半部：圖片區域 (精確佔據 50% 高度) */
+        .img-half {
+            height: 50vh;
+            width: 100%;
+            background-color: #000;
+        }
+        .img-half img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;      /* 確保圖片填滿，不會變形 */
+            object-position: top;   /* 聚焦在角色的臉部與上半身 */
+        }
+
+        /* 下半部：文字區域 (精確佔據 50% 高度) */
+        .text-half {
+            height: 50vh;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* 讓文字在下半部垂直置中 */
+            align-items: center;
+            padding: 3vh 6vw;        /* 使用相對單位設定內距 */
+            box-sizing: border-box;
+            background-color: #1a1a1a;
+        }
+        
+        /* 動態文字大小：使用 vmin (螢幕長寬中較小者) 與 vh 單位進行動態縮放 */
+        .char-title {
+            font-size: max(4vmin, 2.5vh); /* 依畫面佔比自動調整字級 */
+            color: #e74c3c;
+            font-weight: bold;
+            margin-bottom: 2vh;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+        .quote {
+            font-size: max(3vmin, 1.8vh); /* 依畫面佔比自動調整字級 */
+            line-height: 1.6;
+            text-align: left;
+            padding: 3vh 4vw;
+            background-color: rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            border-left: 5px solid #e74c3c;
+            width: 100%;
+            box-sizing: border-box;
+            max-height: 35vh; /* 避免台詞過長超出下半部 */
+            overflow-y: auto; /* 若字太多會自動出現內部捲軸，不破壞版面 */
+        }
     </style>
 </head>
 <body>
@@ -38,17 +93,22 @@
         <div id="loading-txt" class="loading">正在確認天機與可用角色...</div>
     </div>
 
+    <!-- 更新後的結構：分為上下兩半部 -->
     <div id="result-container">
-        <div class="char-title" id="result-name"></div>
-        <img src="" id="result-img" alt="您的角色">
-        <div class="quote" id="result-quote"></div>
+        <div class="img-half">
+            <img src="" id="result-img" alt="您的角色">
+        </div>
+        <div class="text-half">
+            <div class="char-title" id="result-name"></div>
+            <div class="quote" id="result-quote"></div>
+        </div>
     </div>
 
     <script>
         // 【重要】請將下方引號內替換為您在步驟一產生的 GAS Web App 網址
         const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwx7T9hXHwhAPIVZUmElTSH0xgBUZuVgBS6ipfzm-E83aFwYv9-cGN4ThaWcrb_tUL34w/exec";
 
-        let hasDrawn = false; // 新增變數：記錄使用者是否已經抽過獎了
+        let hasDrawn = false;
 
         const piliCharacters = [
             { name: "素還真", img: "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?q=80&w=500", quote: "半神半聖亦半仙，全儒全道是全賢；腦中真書藏萬卷，掌握文武半邊天。" },
@@ -90,11 +150,12 @@
                 
                 return fetch(uploadUrl).then(res => res.json()).then(result => {
                     if(result.status === "success") {
-                        // 記錄狀態為「已抽取」，啟動背景檢查機制
                         hasDrawn = true;
 
                         document.getElementById('main-container').style.display = 'none';
-                        document.getElementById('result-container').style.display = 'block';
+                        // 【關鍵修改】此處將切換樣式改為 'flex' 以維持 50/50 的彈性排版
+                        document.getElementById('result-container').style.display = 'flex'; 
+                        
                         document.getElementById('result-name').innerText = `【您的角色：${selectedChar.name}】`;
                         document.getElementById('result-img').src = selectedChar.img;
                         document.getElementById('result-quote').innerText = finalQuote;
@@ -111,29 +172,26 @@
             });
         });
 
-        // 新增功能：每 5 秒在背景檢查一次雲端資料庫是否被清空
+        // 定期確認雲端是否已清空 (同步重置畫面)
         setInterval(() => {
-            // 只有當使用者已經抽過獎、停留在結果畫面時，才需要去檢查
             if (hasDrawn) {
                 fetch(`${GAS_WEB_APP_URL}?action=read`)
                 .then(response => response.json())
                 .then(data => {
-                    // 如果雲端抓回來的名單長度為 0，代表管理員按下了「清空雲端資料庫」
                     if (data.length === 0) {
-                        // 重置手機端畫面與狀態
                         hasDrawn = false;
                         document.getElementById('result-container').style.display = 'none';
-                        document.getElementById('main-container').style.display = 'block';
+                        // 【關鍵修改】回到首頁時切換為 'flex' 讓首頁保持置中
+                        document.getElementById('main-container').style.display = 'flex';
                         document.getElementById('draw-btn').style.pointerEvents = 'auto';
                         document.getElementById('loading-txt').style.display = 'none';
                         
-                        // 溫馨提示會眾
                         alert("大會已開啟新的一輪抽獎，您可以再次進行抽選囉！");
                     }
                 })
                 .catch(error => console.error("背景檢查狀態失敗:", error));
             }
-        }, 5000); // 5000 毫秒 = 5 秒
+        }, 5000);
     </script>
 </body>
 </html>
